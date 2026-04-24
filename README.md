@@ -69,6 +69,6 @@ pip install -r requirements.txt
 1. Đặt trọng số local (nếu có) tại: `models/aesthetic_weights.pth`.
 2. Chạy ứng dụng: `python app.py`.
 3. Tải ảnh lên, chọn "Ưu tiên" và nhấn **Phân tích AI**.
-
+4. Nếu chưa có model: Download tại link https://github.com/LAION-AI/aesthetic-predictor/blob/main/sa_0_4_vit_b_32_linear.pth và đổi tên model thành aesthetic_weights.pth
 ---
 *Phát triển bởi Antigravity AI Engineering Team.*
