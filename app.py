@@ -37,6 +37,7 @@ def _result_to_payload(result):
         "score_label": str(_field(result, "score_label", "")),
         "brief_note": str(_field(result, "brief_note", "")),
         "auto_selected": bool(_field(result, "auto_selected", False)),
+        "analysis_result": _field(result, "analysis_result", {}),
     }
 
 
@@ -496,15 +497,40 @@ button.stop:hover{background:#FEE2E2!important;border-color:var(--c-danger)!impo
 .gr-accordion > .label-wrap:hover{background:var(--c-teal-pale)!important;}
 
 /* ─── Number metrics ─── */
-.gr-number{background:var(--c-surface)!important;border:1px solid var(--c-border)!important;
-    border-radius:var(--r)!important;padding:14px!important;text-align:center!important;
-    box-shadow:var(--sh-xs)!important;transition:transform .2s var(--ease),box-shadow .2s var(--ease)!important;}
-.gr-number:hover{transform:translateY(-2px);box-shadow:var(--sh-sm)!important;}
-.gr-number > label > span:first-child{text-align:center!important;display:block!important;margin-bottom:6px!important;}
-.gr-number input[type="number"]{font-family:'DM Serif Display',serif!important;
-    font-size:2rem!important;color:var(--c-teal)!important;background:transparent!important;
-    border:none!important;text-align:center!important;box-shadow:none!important;padding:0!important;}
-.gr-number input[type="number"]:focus{box-shadow:none!important;}
+/* ─── Number metric boxes — chữ số ĐEN cố định ─── */
+/* FORCE Gradio Number value visible */
+.gr-number,
+.gr-number *,
+[data-testid="number"],
+[data-testid="number"] *{
+  opacity: 1 !important;
+}
+
+.gr-number input,
+.gr-number input[type="number"],
+.gr-number input[disabled],
+.gr-number input[readonly],
+[data-testid="number"] input,
+[data-testid="number"] input[disabled],
+[data-testid="number"] input[readonly]{
+  color: #000 !important;
+  -webkit-text-fill-color: #000 !important;
+  opacity: 1 !important;
+  font-size: 2.2rem !important;
+  font-weight: 600 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.gr-number input::placeholder,
+.gr-number input[disabled]::placeholder,
+[data-testid="number"] input::placeholder{
+  color: #000 !important;
+  -webkit-text-fill-color: #000 !important;
+  opacity: 1 !important;
+}
+
 
 /* ─── Textbox ─── */
 .gr-textbox input, .gr-textbox textarea{background:var(--c-bg)!important;
@@ -631,11 +657,12 @@ with gr.Blocks(
 |---|---|
 | **Nụ cười** | Độ rộng khuôn miệng & khóe môi (0–100) |
 | **Mắt mở** | Tỷ lệ EAR — cảnh báo nếu nhắm mắt |
-| **Độ nét** | Thuật toán Laplacian đo tương phản cạnh |
-| **Ánh sáng** | Độ sáng trung bình & phân bố histogram |
-| **Thẩm mỹ** | CLIP model đánh giá độ nghệ thuật |
+| **Thẩm mỹ** | CLIP model đánh giá độ nghệ thuật (Xương sống 50%) |
+| **Độ nét** | Laplacian đo tương phản cạnh (25%) |
+| **Ánh sáng** | Phân bố histogram (25%) |
+| **Mắt mở** | Cổng gác Stage 1 — Loại bỏ nếu < 30 |
 
-`Score = 25% Nụ cười + 20% Độ nét + 20% Ánh sáng + 20% Thẩm mỹ + 15% Bố cục`
+`Score = 50% Thẩm mỹ + 25% Độ nét + 25% Ánh sáng` (Bonus +1.5 nếu cười tươi)
                 """)
 
             upload_preview = gr.Gallery(label="Xem trước ảnh", columns=6, height=280, object_fit="cover")

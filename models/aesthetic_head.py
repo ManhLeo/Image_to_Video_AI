@@ -39,8 +39,13 @@ class AestheticHead(nn.Module):
         """
         # Formula: score = w · embedding + b
         score = self.linear(x)
-        # Normalize output to [0,1] using Sigmoid
-        return torch.sigmoid(score)
+        
+        # Standard aesthetic predictors (AVA/LAION) output scores in range [1, 10].
+        # We scale by 10 to get a [0, 1] range for our UI.
+        normalized_score = score / 10.0
+        
+        # Ensure result is strictly within [0, 1]
+        return torch.clamp(normalized_score, 0.0, 1.0)
 
 # Global instance for the helper function
 _head = None
@@ -64,10 +69,20 @@ def _resolve_weight_path() -> Optional[Path]:
 def _extract_state_dict(checkpoint: Dict) -> Dict:
     """Extract a compatible state_dict from a checkpoint object."""
     if "state_dict" in checkpoint and isinstance(checkpoint["state_dict"], dict):
-        return checkpoint["state_dict"]
+        checkpoint = checkpoint["state_dict"]
     if "model_state_dict" in checkpoint and isinstance(checkpoint["model_state_dict"], dict):
-        return checkpoint["model_state_dict"]
-    return checkpoint
+        checkpoint = checkpoint["model_state_dict"]
+    
+    # Handle case where keys are just 'weight', 'bias' instead of 'linear.weight', 'linear.bias'
+    new_state_dict = {}
+    for k, v in checkpoint.items():
+        if k == "weight":
+            new_state_dict["linear.weight"] = v
+        elif k == "bias":
+            new_state_dict["linear.bias"] = v
+        else:
+            new_state_dict[k] = v
+    return new_state_dict
 
 
 def get_aesthetic_head(device="cpu"):

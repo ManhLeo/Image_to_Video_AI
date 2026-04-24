@@ -11,6 +11,7 @@ import config
 
 @dataclass
 class PhotoScore:
+    """Dataclass to hold all metrics and final decision for a single image."""
     # Input info
     image_path: str = ""
     filename: str = ""
@@ -40,30 +41,73 @@ class PhotoScore:
     embedding: Optional[np.ndarray] = field(default=None, repr=False)
     overall_score: float = 0.0
     auto_selected: bool = False
-    rejection_reason: str = ""  # why photo was rejected
+    rejection_reason: str = ""
     score_label: str = ""       # "Xuất sắc" / "Tốt" / "Khá" / "Loại bỏ"
     brief_note: str = ""        # Vietnamese note about the photo
     scene_label: str = "unknown"
     scene_confidence: float = 0.0
 
+    # Structured Output (Production Ready)
+    analysis_result: Dict[str, Any] = field(default_factory=dict)
+
+
+class SelectionFilter:
+    """Stage 1: Hard Filtering logic to reject extreme low-quality or invalid images."""
+    
+    @staticmethod
+    def evaluate(photo: PhotoScore) -> Tuple[bool, str]:
+        """
+        Evaluate hard filters.
+        Returns: (accepted: bool, reason: str)
+        """
+        # 1. Extreme Blur Filter
+        if photo.sharpness_score < config.MIN_SHARPNESS:
+            return False, f"Ảnh quá mờ (Sharpness {photo.sharpness_score:.1f} < {config.MIN_SHARPNESS})"
+
+        # 2. Closed Eyes Filter (Hard threshold)
+        if photo.eye_open_score < config.MIN_EYE_OPEN:
+            return False, f"Mắt nhắm hẳn (Eye score {photo.eye_open_score:.1f} < {config.MIN_EYE_OPEN})"
+
+        # 3. Face Presence & Rescue Logic
+        if photo.face_count == 0:
+            # Rescue: If aesthetic is very high, accept as artistic/landscape
+            if photo.aesthetic_score >= config.RESCUE_AESTHETIC_THRESHOLD:
+                return True, "no_face_but_high_aesthetic"
+            else:
+                return False, f"Không tìm thấy khuôn mặt (Aesthetic {photo.aesthetic_score:.1f} < {config.RESCUE_AESTHETIC_THRESHOLD})"
+
+        return True, ""
+
+
+class QualityRanker:
+    """Stage 2: Soft Scoring and Ranking based on weighted quality signals."""
+    
+    @staticmethod
+    def calculate(photo: PhotoScore) -> float:
+        """
+        Calculates final score using weighted quality metrics + refinements.
+        Formula: 0.5*Aesthetic + 0.25*Sharpness + 0.25*Lighting
+        """
+        # Base quality score (Normalized signals)
+        base_score = (
+            config.W_AESTHETIC * photo.aesthetic_score +
+            config.W_SHARPNESS * photo.sharpness_score +
+            config.W_LIGHTING * photo.exposure_score
+        )
+
+        # Refinement 1: Soft Eye Penalty (Mắt hơi nhắm)
+        if config.MIN_EYE_OPEN <= photo.eye_open_score < 50:
+            base_score -= config.PENALTY_EYES
+            
+        # Refinement 2: Smile Bonus (Cộng điểm nụ cười)
+        if photo.smile_score > 80:
+            base_score += config.BONUS_SMILE
+
+        return float(min(100.0, max(0.0, base_score)))
+
 
 class PhotoScorer:
-    @staticmethod
-    def _normalize_sensitivity(sensitivity: int) -> int:
-        """
-        Normalize sensitivity into the supported UI-safe range.
-
-        Args:
-            sensitivity (int): Raw user value.
-
-        Returns:
-            int: Clamped sensitivity in range [5, 10].
-        """
-        try:
-            value = int(sensitivity)
-        except (TypeError, ValueError):
-            value = 7
-        return max(5, min(10, value))
+    """Orchestrates the two-stage pipeline: Filtering then Ranking."""
 
     def __init__(self):
         self.face_analyzer = FaceAnalyzer()
@@ -76,16 +120,14 @@ class PhotoScorer:
         self.close()
 
     def score_photo(self, image_path: str, user_config: Dict[str, Any]) -> PhotoScore:
-        """Main scoring function that combines face and quality analysis."""
+        """Main entry point for scoring a single photo."""
         filename = os.path.basename(image_path)
         
-        # 1. Face Analysis
+        # 1. Feature Extraction (Face + Quality)
         face_res = self.face_analyzer.analyze(image_path)
-        
-        # 2. Quality & Composition Analysis
         qual_res = self.quality_analyzer.analyze(image_path, face_positions=face_res.face_positions)
         
-        # 3. Build PhotoScore object
+        # 2. Construct Data Object
         photo = PhotoScore(
             image_path=image_path,
             filename=filename,
@@ -105,140 +147,63 @@ class PhotoScorer:
             is_underexposed=qual_res.is_underexposed
         )
         
-        # 4. Calculate weighted overall_score
-        priorities = user_config.get("priorities", ["smile", "quality", "lighting", "aesthetic"])
-        photo.overall_score = self._calculate_weighted_score(photo, priorities)
+        # Note: aesthetic_score is filled later by BatchProcessor (GPU phase)
+        # For initial CPU pass, we just return the object with extracted features.
+        return photo
+
+    def finalize_score(self, photo: PhotoScore) -> PhotoScore:
+        """
+        Performs the 2-stage decision once all features (including Aesthetic) are ready.
+        """
+        # Stage 1: Filtering
+        accepted, reason = SelectionFilter.evaluate(photo)
         
-        # 5. Determine auto_selected and label
-        sensitivity = user_config.get("sensitivity", 6)
-        photo.auto_selected, photo.rejection_reason = self._should_auto_select(photo, sensitivity)
+        # Stage 2: Scoring (Even if rejected, we calculate score for analytics/debug)
+        final_score = QualityRanker.calculate(photo)
+        
+        # Update photo state
+        photo.overall_score = final_score
+        photo.auto_selected = accepted
+        photo.rejection_reason = reason if not accepted else ""
+        if accepted and reason == "no_face_but_high_aesthetic":
+             photo.rejection_reason = "Artistic Shot (High Aesthetic)"
+             
         photo.score_label = self._get_score_label(photo.overall_score)
-        
-        # 6. Generate Vietnamese brief_note
+        if not accepted:
+            photo.score_label = "Loại bỏ ✗"
+            
         photo.brief_note = self._generate_brief_note(photo)
+        
+        # Structured Output
+        photo.analysis_result = {
+            "accepted": accepted,
+            "reason": photo.rejection_reason,
+            "scores": {
+                "aesthetic": round(photo.aesthetic_score, 1),
+                "sharpness": round(photo.sharpness_score, 1),
+                "lighting": round(photo.exposure_score, 1),
+                "smile": round(photo.smile_score, 1),
+                "eyes": round(photo.eye_open_score, 1)
+            },
+            "final_score": round(photo.overall_score, 1)
+        }
         
         return photo
 
-    def _calculate_weighted_score(
-        self,
-        photo: PhotoScore,
-        priorities: List[str],
-        theme: str = "family",
-        scene_label: Optional[str] = None
-    ) -> float:
-        """Calculates a weighted score based on user priorities, theme, and geometry."""
-        # Standard base weights
-        weights = {
-            "smile": 0.25,
-            "sharpness": 0.20,
-            "exposure": 0.20,
-            "aesthetic": 0.20
-        }
-        
-        # Theme-based boost
-        if theme == "individual":
-            weights["aesthetic"] += 0.05
-        elif theme in ["family", "group"]:
-            weights["smile"] += 0.05
-
-        # Scene-aware dynamic weighting from CLIP prompt classification.
-        if getattr(config, "ENABLE_SCENE_AWARE_SCORING", False):
-            scene = (scene_label or photo.scene_label or "unknown").lower()
-            if scene == "portrait":
-                weights["smile"] += 0.05
-                weights["aesthetic"] += 0.05
-            elif scene == "group photo":
-                weights["smile"] += 0.08
-                weights["sharpness"] += 0.03
-            elif scene == "outdoor":
-                weights["exposure"] += 0.08
-                weights["sharpness"] += 0.02
-            elif scene == "low light":
-                weights["exposure"] += 0.10
-                weights["sharpness"] += 0.03
-            
-        # Priority boost (explicit user selection)
-        if priorities:
-            boost = 0.10
-            for p in priorities:
-                if p == "smile" and "smile" in weights: weights["smile"] += boost
-                if p == "quality" and "sharpness" in weights: weights["sharpness"] += boost
-                if p == "lighting" and "exposure" in weights: weights["exposure"] += boost
-                if p == "aesthetic" and "aesthetic" in weights: weights["aesthetic"] += boost
-
-            # Re-normalize base weights to sum to 0.85 (reserving 0.15 for geometry)
-            total_w = sum(weights.values())
-            weights = {k: (v/total_w) * 0.85 for k, v in weights.items()}
-        
-        # Apply Step 5 formula strictly
-        score = (
-            weights["smile"] * photo.smile_score +
-            weights["sharpness"] * photo.sharpness_score +
-            weights["exposure"] * photo.exposure_score +
-            weights["aesthetic"] * photo.aesthetic_score +
-            0.10 * (photo.face_ratio * 100.0) -
-            0.05 * (photo.center_distance * 100.0)
-        )
-        
-        # Hard penalties
-        if photo.is_blurry:         score *= 0.35
-        if photo.has_closed_eyes:   score *= 0.50
-        if photo.face_count == 0 and "smile" in priorities:   score *= 0.70
-        
-        return min(100.0, max(0.0, score))
-
-
-    def _should_auto_select(self, photo: PhotoScore, sensitivity: int) -> Tuple[bool, str]:
-        """Determines if the photo should be automatically selected."""
-        normalized_sensitivity = self._normalize_sensitivity(sensitivity)
-        min_threshold = normalized_sensitivity * 10
-        rejection_reason = ""
-
-        if photo.is_blurry:
-            rejection_reason = "Ảnh bị mờ"
-            return False, rejection_reason
-            
-        if photo.has_closed_eyes:
-            rejection_reason = "Có người nhắm mắt"
-            return False, rejection_reason
-            
-        if photo.is_overexposed and photo.overall_score < 40:
-            rejection_reason = "Ảnh cháy sáng"
-            return False, rejection_reason
-            
-        if photo.overall_score < min_threshold:
-            rejection_reason = f"Điểm {photo.overall_score:.0f} < ngưỡng {min_threshold}"
-            return False, rejection_reason
-
-        return True, ""
-
-    def _generate_brief_note(self, photo: PhotoScore) -> str:
-        """Generates a short Vietnamese note about the photo quality."""
-        if photo.is_blurry: return "Ảnh bị mờ, không rõ nét"
-        if photo.has_closed_eyes: return "Có người nhắm mắt"
-        
-        if photo.overall_score >= 85:
-            if photo.smile_score >= 80: return "Nụ cười rất đẹp và tự nhiên, ảnh xuất sắc!"
-            return "Ảnh kỹ thuật tốt, ánh sáng và bố cục ấn tượng"
-            
-        if photo.overall_score >= 70:
-            if photo.smile_score >= 70: return "Nụ cười tốt, chất lượng ảnh đạt yêu cầu"
-            return "Ảnh đủ tiêu chuẩn, chất lượng khá"
-            
-        if photo.overall_score >= 50:
-            notes = []
-            if photo.sharpness_score < 60: notes.append("hơi mờ")
-            if photo.exposure_score < 60: notes.append("ánh sáng chưa tốt")
-            return "Ảnh mức khá" + (", " + ", ".join(notes) if notes else "")
-            
-        return "Ảnh chưa đạt yêu cầu"
-
     def _get_score_label(self, score: float) -> str:
-        """Returns a string label for the score."""
         if score >= 85: return "Xuất sắc ⭐"
         if score >= 70: return "Tốt ✓"
         if score >= 50: return "Khá"
-        return "Loại bỏ ✗"
+        return "Trung bình"
+
+    def _generate_brief_note(self, photo: PhotoScore) -> str:
+        if photo.rejection_reason:
+            return photo.rejection_reason
+        
+        if photo.overall_score >= 85: return "Ảnh xuất sắc, chất lượng nghệ thuật cao"
+        if photo.overall_score >= 70: return "Ảnh tốt, đáp ứng các tiêu chuẩn kỹ thuật"
+        if photo.overall_score >= 50: return "Ảnh đạt yêu cầu"
+        return "Chất lượng chưa cao"
 
     def close(self):
         self.face_analyzer.close()

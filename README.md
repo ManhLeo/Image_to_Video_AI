@@ -1,65 +1,74 @@
-# AI Photo Studio: Intelligent Video Production Pipeline
+# VibeFlow AI Photo Studio
 
-**AI Photo Studio** là một hệ thống tự động hóa quy trình phân tích hình ảnh và sản xuất video chuyên nghiệp, tích hợp trí tuệ nhân tạo để chọn lọc những khoảnh khắc đẹp nhất từ thư viện ảnh của bạn.
-
----
-
-## Tính năng nổi bật
-
-### 1. Phân tích AI đa tầng (Multi-model Analysis)
-Hệ thống sử dụng các mô hình AI hiện đại nhất để đánh giá từng bức ảnh theo nhiều tiêu chí:
-- **Face Analysis (MediaPipe)**: Nhận diện nụ cười (Smile score), kiểm tra trạng thái mắt (Eye open/closed) và bố cục khuôn mặt.
-- **Aesthetic Scoring (CLIP + ML Head)**: Đánh giá tính thẩm mỹ, nghệ thuật và bố cục dựa trên mô hình học sâu của OpenAI.
-- **Technical Metrics (OpenCV)**: Đo lường độ sắc nét (Sharpness) và độ phơi sáng (Exposure) bằng các thuật toán xử lý ảnh số.
-
-### 2. Tự động hóa chọn lọc (Smart Filtering)
-- **AI Recommendation**: Hệ thống tự động gắn nhãn "Được chọn" cho những ảnh đạt điểm cao nhất dựa trên độ nhạy (Sensitivity) tùy chỉnh.
-- **Mood-based Optimization**: Điều chỉnh tiêu chí lọc theo chủ đề: Gia đình, Cá nhân hoặc Nhóm.
-
-### 3. Dựng phim tự động (Automated Slideshow)
-- Tạo video slideshow chất lượng cao với các hiệu ứng chuyển cảnh mượt mà.
-- Tích hợp nhạc nền (BGM) đa dạng và đồng bộ hóa với tâm trạng (Mood) của bộ ảnh.
-- Tối ưu hóa thời lượng dựa trên số lượng ảnh được chọn.
-
-### 4. Giao diện Premium (Glassmorphism UI)
-- Trải nghiệm người dùng cao cấp với phong cách thiết kế **Glassmorphism**.
-- Hiệu ứng **Neon Glow** cho các nút điều khiển và micro-animations mượt mà.
-- Chuyển Tab thông minh bằng JavaScript, tối ưu cho **Gradio 6**.
+**VibeFlow AI Photo Studio** là một hệ thống sản xuất video tự động từ ảnh, tích hợp các mô hình Computer Vision hiện đại để chọn lọc những khoảnh khắc chất lượng nhất. Hệ thống được tối ưu hóa cho môi trường sản xuất thực tế với kiến trúc 2 giai đoạn (Stage 1: Filtering & Stage 2: Ranking).
 
 ---
 
-## Công nghệ sử dụng
+## Các mô hình AI sử dụng
 
-- **Core Logic**: Python 3.11+
-- **Frontend**: Gradio 6 (Custom CSS & JS)
-- **Computer Vision**: OpenCV, MediaPipe
-- **Deep Learning**: PyTorch, OpenCLIP
-- **Video Engine**: MoviePy / FFmpeg
+Hệ thống kết hợp sức mạnh của nhiều mô hình AI để phân tích ảnh toàn diện:
+
+1.  **Aesthetic Analysis (Thẩm mỹ)**:
+    *   **Model**: CLIP (ViT-B-32) từ OpenAI.
+    *   **Custom Head**: Một Linear Head được huấn luyện trên tập dữ liệu LAION-Aesthetics/AVA để dự đoán điểm số thẩm mỹ nghệ thuật (composition, color, professional look).
+2.  **Face & Human Analysis (Khuôn mặt)**:
+    *   **Model**: MediaPipe FaceLandmarker (Tasks API).
+    *   **Metrics**: Trích xuất EAR (Eye Aspect Ratio) để đo độ mở mắt và tỉ lệ khuôn miệng để tính điểm nụ cười (Smile score).
+3.  **Technical Quality (Chất lượng kỹ thuật)**:
+    *   **Sharpness**: Sử dụng thuật toán Laplacian Variance để đo độ nét của các cạnh.
+    *   **Lighting/Exposure**: Phân tích Histogram và Mean Brightness để phát hiện ảnh cháy sáng hoặc quá tối.
+4.  **Scene & Context Aware**:
+    *   Sử dụng CLIP embeddings để phân loại bối cảnh (Portrait, Landscape, Outdoor, Group) nhằm điều chỉnh trọng số chấm điểm linh hoạt.
 
 ---
 
-## Cài đặt & Sử dụng
+## Quy trình chấm điểm 2 giai đoạn (Two-Stage Pipeline)
 
-### 1. Cài đặt môi trường
+Để đảm bảo độ chính xác và tránh bias, hệ thống tách biệt hoàn toàn việc **Loại bỏ** và **Xếp hạng**.
+
+### Giai đoạn 1: Lọc cứng (Hard Filtering)
+Mọi ảnh phải vượt qua các "cổng gác" sau để không bị loại:
+-   **Độ nét (Sharpness)**: Score < 30 → **Loại** (Ảnh quá mờ).
+-   **Mở mắt (Eyes)**: Score < 30 → **Loại** (Nhắm mắt hoàn toàn).
+-   **Nhận diện mặt**: Không thấy mặt → **Loại**.
+    -   *Ngoại lệ (Rescue)*: Nếu điểm **Thẩm mỹ > 60**, ảnh sẽ được giữ lại dù không thấy mặt (ảnh phong cảnh, decor đẹp).
+
+### Giai đoạn 2: Xếp hạng (Soft Scoring)
+Sau khi vượt qua vòng lọc, điểm số cuối cùng được tính theo công thức:
+```python
+Final_Score = (50% Aesthetic) + (25% Sharpness) + (25% Lighting)
+```
+**Điều chỉnh nâng cao:**
+-   **Penalty (Phạt)**: Nếu mắt hơi nhắm (30 ≤ Eyes < 50) → **Trừ 5 điểm**.
+-   **Bonus (Thưởng)**: Nếu nụ cười tươi (> 80) → **Cộng 1.5 điểm**.
+
+---
+
+## Tối ưu hóa phần cứng (Low VRAM)
+
+Dự án được thiết kế đặc biệt để chạy tốt trên các GPU 4GB VRAM:
+-   **FP16 Mode**: Chạy CLIP inference ở chế độ bán chính xác để giảm 50% bộ nhớ.
+-   **Aggressive Cleanup**: Tự động giải phóng cache Torch và thu hồi bộ nhớ ngay sau khi kết thúc Phase GPU.
+-   **Batch Processing**: Tự động điều chỉnh kích thước Batch nếu phát hiện nguy cơ OOM (Out of Memory).
+
+---
+
+## Cài đặt & Khởi chạy
+
+### 1. Cài đặt
 ```bash
-# Tạo môi trường ảo
+# Tạo và kích hoạt venv
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+venv\Scripts\activate
 
 # Cài đặt thư viện
 pip install -r requirements.txt
 ```
 
-### 2. Khởi chạy ứng dụng
-```bash
-python app.py
-```
-Sau đó truy cập địa chỉ `http://localhost:7860` trên trình duyệt.
+### 2. Sử dụng
+1. Đặt trọng số local (nếu có) tại: `models/aesthetic_weights.pth`.
+2. Chạy ứng dụng: `python app.py`.
+3. Tải ảnh lên, chọn "Ưu tiên" và nhấn **Phân tích AI**.
 
 ---
-
-## Tối ưu hóa phần cứng
-Dự án được thiết kế để chạy mượt mà ngay cả trên các dòng GPU phổ thông:
-- Hỗ trợ **FP16 Mixed Precision** để tiết kiệm VRAM.
-- Cơ chế **Memory Cleanup** tự động giải phóng bộ nhớ sau mỗi phiên phân tích.
-- Xử lý Batch thông minh tránh lỗi OOM (Out of Memory).
+*Phát triển bởi Antigravity AI Engineering Team.*

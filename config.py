@@ -30,11 +30,23 @@ DEFAULT_WEIGHTS = {
     "composition": 0.10,
 }
 
-# Thresholds
-MIN_SCORE_THRESHOLD = 60    # ảnh dưới ngưỡng này bị loại
-BLUR_THRESHOLD = 80.0       # Laplacian variance — dưới ngưỡng = mờ
-DARK_THRESHOLD = 40         # mean brightness — dưới = tối
-BRIGHT_THRESHOLD = 215      # mean brightness — trên = cháy sáng
+# --- Stage 1: Filtering (Hard Gates) ---
+MIN_SHARPNESS = 30             # Loại extreme blur
+MIN_EYE_OPEN = 30              # Loại mắt nhắm hẳn
+RESCUE_AESTHETIC_THRESHOLD = 60 # Chấp nhận ảnh nếu aesthetic > 60
+
+# --- Stage 2: Ranking (Soft Scoring) ---
+W_AESTHETIC = 0.50
+W_SHARPNESS = 0.25
+W_LIGHTING = 0.25
+PENALTY_EYES = 5.0             # Trừ điểm nếu 30 <= eyes < 50
+BONUS_SMILE = 1.5              # Cộng điểm nếu smile > 80
+
+# Legacy thresholds (for backward compatibility if needed)
+MIN_SCORE_THRESHOLD = 60
+BLUR_THRESHOLD = 30.0
+DARK_THRESHOLD = 40
+BRIGHT_THRESHOLD = 215
 
 # Video settings
 VIDEO_FPS = 25

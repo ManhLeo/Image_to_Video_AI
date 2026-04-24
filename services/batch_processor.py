@@ -198,20 +198,19 @@ class BatchProcessor:
 
     def run_scoring_phase(self, user_config: Dict[str, Any]):
         """Final CPU scoring, ranking and diversity filtering."""
+        print(f"\n[BatchProcessor] Stage 2: Finalizing scores for {len(self.results)} images...")
+        
         for r in self.results:
-            # Re-calculate overall score with aesthetic and theme
-            r.overall_score = self.scorer._calculate_weighted_score(
-                r, 
-                user_config.get("priorities", []),
-                theme=user_config.get("theme", "family"),
-                scene_label=getattr(r, "scene_label", "unknown")
-            )
+            # Performs Stage 1 (Filter) and Stage 2 (Ranking)
+            self.scorer.finalize_score(r)
             
-            # Re-evaluate selection
-            sensitivity = user_config.get("sensitivity", 6)
-            r.auto_selected, r.rejection_reason = self.scorer._should_auto_select(r, sensitivity)
-            r.score_label = self.scorer._get_score_label(r.overall_score)
-            r.brief_note = self.scorer._generate_brief_note(r)
+            # Detailed Logging for Production Debugging
+            status = "✅ ACCEPTED" if r.auto_selected else "❌ REJECTED"
+            reason = f"({r.rejection_reason})" if r.rejection_reason else ""
+            print(f"  {status} {r.filename:<30} | Score: {r.overall_score:>5.1f} | {reason}")
+            if r.auto_selected:
+                res = r.analysis_result["scores"]
+                print(f"    └─ [Metrics] Aesthetic: {res['aesthetic']} | Sharp: {res['sharpness']} | Light: {res['lighting']} | Smile: {res['smile']} | Eyes: {res['eyes']}")
 
         if getattr(config, "ENABLE_DIVERSITY_FILTER", False):
             self._apply_diversity_filter()

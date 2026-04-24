@@ -171,9 +171,6 @@ class FaceAnalyzer:
         
         score = (avg_ear / 0.30) * 85
         score = min(100.0, score)
-        
-        if has_closed:
-            score = max(0.0, score - 50)
             
         return float(score), has_closed
 

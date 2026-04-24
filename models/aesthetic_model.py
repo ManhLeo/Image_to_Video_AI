@@ -6,8 +6,9 @@ import open_clip
 import torch
 from PIL import Image
 
+from pathlib import Path
 import config
-from models.aesthetic_head import get_aesthetic_head
+from models.aesthetic_head import get_aesthetic_head, _resolve_weight_path
 from models.pretrained_aesthetic import PretrainedAestheticModel
 
 class AestheticModel:
@@ -33,6 +34,9 @@ class AestheticModel:
         # Load fallback head first (always available).
         self.aesthetic_head = get_aesthetic_head(self.device)
         self.pretrained_aesthetic = PretrainedAestheticModel(self.device)
+        
+        # Check if local weights are actually present to determine priority
+        self.has_local_weights = _resolve_weight_path() is not None
         
         # Optimize for Low VRAM
         if config.CLIP_FP16 and self.device == "cuda":
@@ -77,14 +81,21 @@ class AestheticModel:
             # Normalize embeddings
             image_features /= image_features.norm(dim=-1, keepdim=True)
             
-            # Prefer pretrained aesthetic predictor (512-dim compatible).
-            # Fallback to local head if dependency is missing or runtime fails.
+            # PRIORITY LOGIC:
+            # 1. If user provided local weights, use them (highest priority).
+            # 2. Otherwise, use pretrained_aesthetic library (standard fallback).
+            # 3. Final fallback to aesthetic_head with mock weights.
+            
             features_fp32 = image_features.to(torch.float32)
-            if self.pretrained_aesthetic.available:
+            
+            if self.has_local_weights:
+                # Use local head (your new weights)
+                scores = self.aesthetic_head(features_fp32)
+            elif self.pretrained_aesthetic.available:
                 try:
                     scores = self.pretrained_aesthetic.predict_from_embeddings(features_fp32)
                 except Exception as exc:
-                    print(f"[AestheticModel] Pretrained aesthetic failed, fallback activated: {exc}")
+                    print(f"[AestheticModel] Pretrained aesthetic failed: {exc}")
                     scores = self.aesthetic_head(features_fp32)
             else:
                 scores = self.aesthetic_head(features_fp32)
