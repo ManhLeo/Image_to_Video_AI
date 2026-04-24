@@ -1,0 +1,17 @@
+gradio==6.13.0
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+Pillow>=10.0.0
+moviepy==1.0.3
+open-clip-torch>=2.20.0
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+scipy>=1.11.0
+imageio>=2.31.0
+imageio-ffmpeg>=0.4.9
+tqdm>=4.65.0
+pydub>=0.25.1
+ftfy>=6.1.1
+regex
+aesthetic-predictor>=0.1.2
