@@ -27,15 +27,18 @@ class FaceResult:
 class FaceAnalyzer:
     def __init__(self):
         """Initializes FaceLandmarker using the modern MediaPipe Tasks API."""
-        model_path = os.path.join(os.path.dirname(__file__), "face_landmarker.task")
+        # Use absolute path to ensure it works on HF Spaces
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(current_dir, "face_landmarker.task")
         
+        print(f"[FaceAnalyzer] Checking model at: {model_path}")
         if not os.path.exists(model_path):
-            print(f"Warning: MediaPipe model not found at {model_path}. Face analysis will be disabled.")
+            print(f"[FaceAnalyzer] ❌ ERROR: Model not found at {model_path}!")
             self.landmarker = None
             return
 
         try:
-            print("[FaceAnalyzer] Initializing MediaPipe FaceLandmarker (Tasks API).")
+            print("[FaceAnalyzer] 🔄 Initializing MediaPipe FaceLandmarker...")
             base_options = python.BaseOptions(model_asset_path=model_path)
             options = vision.FaceLandmarkerOptions(
                 base_options=base_options,
@@ -44,8 +47,11 @@ class FaceAnalyzer:
                 num_faces=10
             )
             self.landmarker = vision.FaceLandmarker.create_from_options(options)
+            print("[FaceAnalyzer] ✅ MediaPipe initialized successfully.")
         except Exception as e:
-            print(f"Error initializing MediaPipe Tasks: {e}")
+            print(f"[FaceAnalyzer] ❌ ERROR during initialization: {str(e)}")
+            import traceback
+            traceback.print_exc()
             self.landmarker = None
 
     def _get_dist(self, p1, p2):
@@ -181,12 +187,13 @@ class FaceAnalyzer:
         per_face_results.sort(key=lambda x: x.get("face_ratio", 0), reverse=True)
         primary_face = per_face_results[0]
         
-        smile_scores = [f["smile_score"] for f in per_face_results]
-        eye_scores = [f["eye_open_score"] for f in per_face_results]
+        # We use the primary face (largest) for the overall scores
+        # But we keep track if ANYONE has closed eyes
         closed_eyes = [f["has_closed_eyes"] for f in per_face_results]
+        
         return {
-            "smile_score": float(np.min(smile_scores)),
-            "eye_open_score": float(np.min(eye_scores)),
+            "smile_score": float(primary_face["smile_score"]),
+            "eye_open_score": float(primary_face["eye_open_score"]),
             "has_closed_eyes": any(closed_eyes),
             "face_ratio": primary_face.get("face_ratio", 0.0),
             "center_dist": primary_face.get("center_dist", 0.0)

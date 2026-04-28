@@ -1,4 +1,4 @@
-"""Gradio entrypoint for AI Photo Studio — Premium Light Theme v3 (Polished)."""
+"""Gradio entrypoint for AI Photo Studio — Premium Light Theme v4 (English)."""
 
 import gradio as gr
 from services.batch_processor import BatchProcessor
@@ -51,12 +51,12 @@ def on_upload(files):
 
 def on_analyze(uploaded_paths, theme, priorities, sensitivity, progress=gr.Progress()):
     if not uploaded_paths:
-        raise gr.Error("Bạn chưa tải ảnh nào lên!")
+        raise gr.Error("No images uploaded!")
 
-    theme_map = {"gia đình": "family", "cá nhân": "individual", "nhóm": "group"}
+    theme_map = {"family": "family", "individual": "individual", "group": "group"}
     priority_map = {
-        "nụ cười": "smile", "chất lượng": "quality",
-        "ánh sáng": "lighting", "thẩm mỹ": "aesthetic",
+        "smile": "smile", "quality": "quality",
+        "lighting": "lighting", "aesthetic": "aesthetic",
     }
 
     try:
@@ -74,9 +74,9 @@ def on_analyze(uploaded_paths, theme, priorities, sensitivity, progress=gr.Progr
 
     def update_progress(current, total, latest_result, progress_pct):
         if latest_result:
-            desc = f"Đang phân tích ảnh {current}/{total}: {latest_result.filename} — {latest_result.score_label}"
+            desc = f"Analyzing photo {current}/{total}: {latest_result.filename} — {latest_result.score_label}"
         else:
-            desc = f"Đang xử lý... {current}/{total}"
+            desc = f"Processing... {current}/{total}"
         progress(progress_pct, desc=desc)
 
     results = processor.process_all(uploaded_paths, user_config, progress_callback=update_progress)
@@ -109,15 +109,15 @@ def on_analyze(uploaded_paths, theme, priorities, sensitivity, progress=gr.Progr
         int(summary.get("rejected_count", 0)),
         round(summary.get("avg_score", 0), 1),
         round(summary.get("avg_smile", 0), 1),
-        f"✔ Đã xử lý {len(results)} ảnh thành công.",
+        f"✔ Successfully processed {len(results)} images.",
         format_vram_status(),
-        "✅ Phân tích hoàn tất.",
+        "✅ Analysis complete.",
     )
 
 
 def on_selection_change_combined(selected_filenames, analysis_results, slide_duration):
     if not selected_filenames:
-        return [], "Chưa chọn ảnh nào!"
+        return [], "No photos selected!"
     selected_paths = []
     for filename in selected_filenames:
         for r in analysis_results:
@@ -126,8 +126,8 @@ def on_selection_change_combined(selected_filenames, analysis_results, slide_dur
     count = len(selected_paths)
     total_time = count * slide_duration
     info_msg = (
-        f"**Cấu hình video:** {count} ảnh · Ước tính ~{total_time:.1f} giây"
-        if count > 0 else "Chưa chọn ảnh nào!"
+        f"**Video Config:** {count} photos · Estimated ~{total_time:.1f} seconds"
+        if count > 0 else "No photos selected!"
     )
     return selected_paths, info_msg
 
@@ -136,14 +136,14 @@ def update_analysis_display(results, min_score, sort_by, show_type):
     if not results:
         return [], [], gr.update(choices=[], value=[]), format_vram_status()
     filtered = results
-    if show_type == "Được chọn":
+    if show_type == "Selected":
         filtered = [r for r in filtered if _field(r, "auto_selected", False)]
-    elif show_type == "Bị loại":
+    elif show_type == "Rejected":
         filtered = [r for r in filtered if not _field(r, "auto_selected", False)]
     filtered = [r for r in filtered if _field(r, "overall_score", 0.0) >= min_score]
-    if sort_by == "Điểm cao nhất":
+    if sort_by == "Highest Score":
         filtered.sort(key=lambda x: _field(x, "overall_score", 0.0), reverse=True)
-    elif sort_by == "Nụ cười tốt nhất":
+    elif sort_by == "Best Smile":
         filtered.sort(key=lambda x: _field(x, "smile_score", 0.0), reverse=True)
     gallery_data = [
         (str(_field(r, "image_path", "")).replace("\\", "/"),
@@ -165,12 +165,12 @@ def update_analysis_display(results, min_score, sort_by, show_type):
 
 def on_generate_video(selected_paths, slide_duration, transition, mood, bgm_name, volume, progress=gr.Progress()):
     if not selected_paths:
-        return None, "❌ Bạn chưa chọn ảnh nào để dựng video!", None
-    transition_map = {"Fade (Mờ dần)": "fade", "Zoom (Ken Burns)": "zoom", "Không có / None": "none"}
+        return None, "❌ No photos selected for video!", None
+    transition_map = {"Fade": "fade", "Zoom (Ken Burns)": "zoom", "None": "none"}
     mood_map = {
-        "Classic (Ấm áp, hoài niệm)": "classic",
-        "Pop (Tươi sáng, rực rỡ)": "pop",
-        "Cinematic (Điện ảnh, tối)": "cinematic",
+        "Classic (Warm, nostalgic)": "classic",
+        "Pop (Bright, vibrant)": "pop",
+        "Cinematic (Dark, moody)": "cinematic",
     }
     bgm_map = {v["name"]: k for k, v in config.BGM_TRACKS.items()}
     video_config = VideoConfig(
@@ -189,387 +189,536 @@ def on_generate_video(selected_paths, slide_duration, transition, mood, bgm_name
     try:
         output_path = generator.generate(selected_paths, video_config, update_progress)
         if not output_path:
-            return None, "❌ Không thể tạo video từ dữ liệu hiện tại.", None
-        return output_path, f"✅ Video đã tạo thành công! Lưu tại: {output_path}", output_path
+            return None, "❌ Could not generate video from current data.", None
+        return output_path, f"✅ Video generated successfully! Saved at: {output_path}", output_path
     except Exception as e:
-        return None, f"❌ Lỗi khi tạo video: {str(e)}", None
+        return None, f"❌ Error during video generation: {str(e)}", None
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  PREMIUM LIGHT THEME CSS  v3 — Polished
-#  Aesthetic: Clean Editorial — Ivory × Teal × Amber
-# ─────────────────────────────────────────────────────────────────────────────
 
 custom_css = """
 :root {
-    --c-bg:#F7F6F2; --c-bg-2:#F0EEE8; --c-surface:#FFFFFF;
-    --c-border:#E2DED4; --c-border-2:#D0CBC0;
-    --c-teal:#0D9488; --c-teal-dark:#0A7A70; --c-teal-pale:#EEF9F8;
-    --c-amber:#B45309; --c-amber-pale:#FEF3C7;
-    --c-text:#1C2B3A; --c-text-2:#4A5568; --c-text-3:#8896A5;
-    --c-success:#059669; --c-success-pale:#ECFDF5;
-    --c-danger:#DC2626; --c-danger-pale:#FEF2F2;
-    --r-lg:14px; --r:10px; --r-sm:7px;
-    --sh-xs:0 1px 2px rgba(28,43,58,.05);
-    --sh-sm:0 1px 4px rgba(28,43,58,.07);
-    --sh-md:0 4px 18px rgba(28,43,58,.09);
-    --ease:cubic-bezier(.4,0,.2,1);
+    --c-bg:          #F7F6F2;
+    --c-bg-2:        #F0EEE8;
+    --c-surface:     #FFFFFF;
+    --c-border:      #E2DED4;
+    --c-border-2:    #D0CBC0;
+    --c-teal:        #0D9488;
+    --c-teal-dark:   #0A7A70;
+    --c-teal-pale:   #EEF9F8;
+    --c-amber:       #B45309;
+    --c-amber-pale:  #FEF3C7;
+    --c-text:        #1C2B3A;
+    --c-text-2:      #4A5568;
+    --c-text-3:      #8896A5;
+    --c-success:     #059669;
+    --c-success-pale:#ECFDF5;
+    --c-danger:      #DC2626;
+    --c-danger-pale: #FEF2F2;
+    --r:             12px;
+    --r-sm:          8px;
+    --sh-sm:         0 2px 8px rgba(28,43,58,.07);
+    --sh-md:         0 6px 20px rgba(28,43,58,.10);
 }
-*{box-sizing:border-box;}
-body, .gradio-container{
-    font-family:'Plus Jakarta Sans',-apple-system,system-ui,sans-serif!important;
-    background:var(--c-bg)!important; color:var(--c-text)!important;
-    -webkit-font-smoothing:antialiased;
+
+* { 
+    box-sizing: border-box; 
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
-.gradio-container{max-width:1280px!important;margin:0 auto!important;padding:0 24px 80px!important;}
+
+body, .gradio-container {
+    font-family: 'Plus Jakarta Sans', -apple-system, system-ui, sans-serif !important;
+    background: var(--c-bg) !important;
+    color: var(--c-text) !important;
+}
+.gradio-container {
+    max-width: 1300px !important;
+    margin: 0 auto !important;
+    padding: 40px 32px 100px !important;
+}
 
 /* ─── Hero ─── */
-.studio-hero{padding:56px 0 36px;text-align:center;}
-.studio-hero::after{content:'';display:block;width:64px;height:3px;
-    background:linear-gradient(90deg,var(--c-teal),var(--c-amber));border-radius:2px;margin:24px auto 0;}
-.studio-hero h1{font-family:'DM Serif Display',serif!important;
-    font-size:clamp(2.2rem,5vw,3.4rem)!important;font-weight:400!important;
-    color:var(--c-text)!important;-webkit-text-fill-color:var(--c-text)!important;
-    letter-spacing:-.025em;line-height:1.1;margin:0 0 12px;}
-.studio-hero h1 em{font-style:italic;color:var(--c-teal)!important;-webkit-text-fill-color:var(--c-teal)!important;}
-.studio-hero p.subtitle{font-size:1.05rem;color:var(--c-text-2)!important;max-width:560px;margin:0 auto 16px;line-height:1.65;}
-.studio-hero .meta{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;
-    background:var(--c-surface);border:1px solid var(--c-border);border-radius:999px;
-    font-size:.78rem;color:var(--c-text-3);font-weight:500;box-shadow:var(--sh-xs);}
-.studio-hero .meta .dot{width:6px;height:6px;border-radius:50%;background:var(--c-success);
-    box-shadow:0 0 0 3px var(--c-success-pale);}
+.studio-hero {
+    padding: 52px 0 40px;
+    text-align: center;
+}
+.studio-hero::after {
+    content: '';
+    display: block;
+    width: 64px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--c-teal), var(--c-amber));
+    border-radius: 2px;
+    margin: 24px auto 0;
+}
+.studio-hero h1 {
+    font-family: 'DM Serif Display', serif !important;
+    font-size: clamp(2.3rem, 5.2vw, 3.5rem) !important;
+    font-weight: 400 !important;
+    color: var(--c-text) !important;
+    -webkit-text-fill-color: var(--c-text) !important;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin: 0 0 10px;
+}
+.studio-hero h1 em {
+    font-style: italic;
+    color: var(--c-teal) !important;
+    -webkit-text-fill-color: var(--c-teal) !important;
+}
+.studio-hero p.subtitle {
+    font-size: 1.05rem;
+    color: var(--c-text-2) !important;
+    max-width: 580px;
+    margin: 0 auto 16px;
+    line-height: 1.65;
+}
+.studio-hero .meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: 9999px;
+    font-size: .78rem;
+    color: var(--c-text-3);
+    font-weight: 500;
+}
+.studio-hero .meta .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--c-success);
+    box-shadow: 0 0 0 3px var(--c-success-pale);
+}
 
-/* ─── FIX 1: Status badges (VRAM) — text rõ ràng ─── */
-.status-row{display:flex;gap:12px;margin-bottom:20px!important;}
+/* ─── Status Row ─── */
+.status-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 28px !important;
+    flex-wrap: wrap;
+}
 .vram-badge, .live-status,
-.vram-badge *, .live-status *{
-    background:var(--c-surface)!important;
-    color:var(--c-text)!important;
-    -webkit-text-fill-color:var(--c-text)!important;
+.vram-badge *, .live-status * {
+    background: var(--c-surface) !important;
+    color: var(--c-text) !important;
+    -webkit-text-fill-color: var(--c-text) !important;
+    opacity: 1 !important;
 }
-.vram-badge, .live-status{
-    border:1px solid var(--c-border)!important;
-    border-radius:999px!important;
-    padding:10px 18px!important;
-    font-size:.85rem!important;
-    font-weight:600!important;
-    box-shadow:var(--sh-xs)!important;
-    text-align:center;
+
+.vram-badge, .live-status {
+    border: 1px solid var(--c-border) !important;
+    border-radius: 9999px !important;
+    padding: 12px 20px !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    box-shadow: var(--sh-sm) !important;
+    text-align: center;
 }
-.vram-badge p, .live-status p{margin:0!important;color:var(--c-text)!important;}
+.vram-badge p, .live-status p { margin: 0 !important; }
 
 /* ─── Tabs ─── */
-.tabs{background:transparent!important;border:none!important;}
-div.tab-nav{background:var(--c-surface)!important;border:1px solid var(--c-border)!important;
-    border-radius:var(--r)!important;padding:6px!important;gap:4px!important;
-    box-shadow:var(--sh-sm)!important;margin-bottom:24px!important;display:flex!important;}
-div.tab-nav button{flex:1!important;font-family:'Plus Jakarta Sans',sans-serif!important;
-    font-size:.9rem!important;font-weight:500!important;color:var(--c-text-2)!important;
-    background:transparent!important;border:none!important;border-radius:var(--r-sm)!important;
-    padding:11px 22px!important;cursor:pointer!important;transition:all .2s var(--ease)!important;}
-div.tab-nav button:hover{background:var(--c-bg)!important;color:var(--c-text)!important;}
-div.tab-nav button.selected{background:var(--c-teal)!important;color:#fff!important;
-    font-weight:700!important;box-shadow:0 2px 10px rgba(13,148,136,.32)!important;}
-.tabitem{background:transparent!important;border:none!important;padding:4px 0!important;}
+.tabs { background: transparent !important; border: none !important; }
+.tab-nav, div.tab-nav {
+    background: var(--c-surface) !important;
+    border: 1px solid var(--c-border) !important;
+    border-radius: var(--r) !important;
+    padding: 8px !important;
+    box-shadow: var(--sh-sm) !important;
+    margin-bottom: 28px !important;
+    display: flex !important;
+}
+.tab-nav button, div.tab-nav button {
+    flex: 1 !important;
+    font-weight: 600 !important;
+    font-size: .9rem !important;
+    color: var(--c-text-2) !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: var(--r-sm) !important;
+    padding: 12px 24px !important;
+    cursor: pointer !important;
+    transition: all .2s ease !important;
+}
+div.tab-nav button:hover { background: var(--c-bg) !important; color: var(--c-text) !important; }
+div.tab-nav button.selected {
+    background: var(--c-teal) !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 14px rgba(13,148,136,.35) !important;
+}
+.tabitem { background: transparent !important; border: none !important; padding: 4px 0 !important; }
 
 /* ─── Panels ─── */
-.gr-panel,.block,.form,.box{background:var(--c-surface)!important;
-    border:1px solid var(--c-border)!important;border-radius:var(--r)!important;
-    box-shadow:var(--sh-sm)!important;}
+.gr-panel, .block, .form, .box {
+    background: var(--c-surface) !important;
+    border: 1px solid var(--c-border) !important;
+    border-radius: var(--r) !important;
+    box-shadow: var(--sh-sm) !important;
+}
 
 /* ─── Labels ─── */
 label > span:first-child, .block > label > span:first-child,
-.wrap > label > span:first-child, fieldset > legend{
-    font-family:'Plus Jakarta Sans',sans-serif!important;
-    font-size:.74rem!important;font-weight:700!important;letter-spacing:.06em!important;
-    text-transform:uppercase!important;color:var(--c-text-3)!important;margin-bottom:8px!important;}
+.wrap > label > span:first-child, fieldset > legend {
+    font-size: 0.77rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.6px !important;
+    text-transform: uppercase !important;
+    color: var(--c-text-3) !important;
+    margin-bottom: 8px !important;
+}
 
 /* ─── Inputs ─── */
-input[type="text"],input[type="number"],input[type="email"],textarea,select{
-    font-family:'Plus Jakarta Sans',sans-serif!important;background:var(--c-bg)!important;
-    border:1.5px solid var(--c-border)!important;border-radius:var(--r-sm)!important;
-    color:var(--c-text)!important;font-size:.92rem!important;padding:10px 14px!important;
-    transition:border-color .18s,box-shadow .18s,background .18s!important;}
-input:focus,textarea:focus,select:focus{border-color:var(--c-teal)!important;
-    box-shadow:0 0 0 3px rgba(13,148,136,.14)!important;background:var(--c-surface)!important;outline:none!important;}
-input[type="range"]{accent-color:var(--c-teal)!important;border:none!important;background:transparent!important;height:6px!important;}
+input[type="text"], input[type="number"], input[type="email"], textarea, select {
+    background: var(--c-bg) !important;
+    border: 1.5px solid var(--c-border) !important;
+    border-radius: var(--r-sm) !important;
+    color: var(--c-text) !important;
+    font-size: .92rem !important;
+    padding: 10px 14px !important;
+    transition: border-color .18s, box-shadow .18s !important;
+}
+input:focus, textarea:focus, select:focus {
+    border-color: var(--c-teal) !important;
+    box-shadow: 0 0 0 3px rgba(13,148,136,.12) !important;
+    background: var(--c-surface) !important;
+    outline: none !important;
+}
+input[type="range"] { accent-color: var(--c-teal) !important; }
 
-/* ─── FIX 4: Radio & Checkbox — phản hồi click TỨC THÌ ─── */
-/* Wrapper container */
-fieldset .wrap, .gr-radio .wrap, [data-testid="radio-group"] .wrap,
-.checkbox-group .wrap, [data-testid="checkbox-group"] .wrap, .gr-checkbox-group .wrap{
-    display:flex!important; flex-direction:column!important; gap:6px!important;
+/* ─── Radio & Checkbox ─── */
+.gr-radio .wrap, .gr-checkbox-group .wrap, .checkbox-group .wrap, 
+[data-testid="radio-group"] .wrap, [data-testid="checkbox-group"] .wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
 }
 
-/* Item label — nguyên 1 vùng click */
-fieldset .wrap label, .gr-radio label, [data-testid="radio-group"] label,
-.checkbox-group label, [data-testid="checkbox-group"] label, .gr-checkbox-group label{
-    background:var(--c-surface)!important;
-    border:1.5px solid var(--c-border)!important;
-    border-radius:var(--r-sm)!important;
-    padding:10px 14px!important;
-    margin:0!important;
-    cursor:pointer!important;
-    display:flex!important; align-items:center!important; gap:10px!important;
-    transition:border-color .12s ease, background .12s ease, box-shadow .12s ease!important;
-    user-select:none!important;
+fieldset .wrap label,
+[data-testid="radio-group"] label,
+[data-testid="checkbox-group"] label,
+.checkbox-group label {
+    background: var(--c-surface) !important;
+    border: 1.5px solid var(--c-border) !important;
+    border-radius: var(--r-sm) !important;
+    padding: 16px 24px !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    user-select: none !important;
+    min-height: 60px !important;
+    width: 100% !important;
+    overflow: visible !important;
 }
-/* Input thật — luôn nhận click, hiện tick ngay */
+
+/* Ensure text inside labels is clear and doesn't wrap awkwardly */
+fieldset .wrap label span, 
+[data-testid="radio-group"] label span,
+[data-testid="checkbox-group"] label span {
+    color: var(--c-text) !important;
+    font-size: 1rem !important;
+    font-weight: 500 !important;
+    line-height: 1.3 !important;
+    text-align: left !important;
+    flex-grow: 1 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+}
+
 fieldset .wrap label input[type="radio"],
 fieldset .wrap label input[type="checkbox"],
 [data-testid="radio-group"] label input,
-[data-testid="checkbox-group"] label input{
-    pointer-events:auto!important;
-    margin:0!important;
-    flex-shrink:0!important;
-    width:18px!important; height:18px!important;
-    cursor:pointer!important;
-}
-input[type="radio"]{accent-color:var(--c-teal)!important;}
-input[type="checkbox"]{accent-color:var(--c-amber)!important;}
-
-/* Text */
-fieldset .wrap label span, [data-testid="radio-group"] label span,
-[data-testid="checkbox-group"] label span, .checkbox-group label span{
-    font-family:'Plus Jakarta Sans',sans-serif!important;
-    font-size:.9rem!important; font-weight:500!important;
-    color:var(--c-text)!important; margin:0!important;
+[data-testid="checkbox-group"] label input {
+    pointer-events: auto !important;
+    margin: 0 !important;
+    width: 20px !important; 
+    height: 20px !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important;
 }
 
-/* Hover */
-fieldset .wrap label:hover, [data-testid="radio-group"] label:hover{
-    border-color:var(--c-teal)!important; background:var(--c-teal-pale)!important;
+input[type="radio"]    { accent-color: var(--c-teal) !important; }
+input[type="checkbox"] { accent-color: var(--c-amber) !important; }
+
+/* Hover States */
+fieldset .wrap label:hover, [data-testid="radio-group"] label:hover {
+    border-color: var(--c-teal) !important;
+    background: var(--c-teal-pale) !important;
+    transform: translateX(4px) !important;
 }
-[data-testid="checkbox-group"] label:hover, .checkbox-group label:hover{
-    border-color:var(--c-amber)!important; background:var(--c-amber-pale)!important;
+[data-testid="checkbox-group"] label:hover, .checkbox-group label:hover {
+    border-color: var(--c-amber) !important;
+    background: var(--c-amber-pale) !important;
+    transform: translateX(4px) !important;
 }
 
-/* Selected — dùng :has() cho trình duyệt mới + fallback class .selected của Gradio */
+/* Selected States */
 fieldset .wrap label:has(input:checked),
-[data-testid="radio-group"] label:has(input[type="radio"]:checked),
-fieldset .wrap label.selected, [data-testid="radio-group"] label.selected{
-    border-color:var(--c-teal)!important;
-    background:var(--c-teal-pale)!important;
-    box-shadow:0 0 0 3px rgba(13,148,136,.10)!important;
+[data-testid="radio-group"] label:has(input:checked) {
+    border-color: var(--c-teal) !important;
+    background: var(--c-teal-pale) !important;
+    box-shadow: 0 4px 12px rgba(13,148,136,0.12) !important;
 }
+[data-testid="checkbox-group"] label:has(input:checked),
+.checkbox-group label:has(input:checked) {
+    border-color: var(--c-amber) !important;
+    background: var(--c-amber-pale) !important;
+    box-shadow: 0 4px 12px rgba(180,83,9,0.12) !important;
+}
+
+/* Bold text when selected */
 fieldset .wrap label:has(input:checked) span,
 [data-testid="radio-group"] label:has(input:checked) span,
-[data-testid="radio-group"] label.selected span{
-    color:var(--c-teal-dark)!important; font-weight:700!important;
-}
-[data-testid="checkbox-group"] label:has(input[type="checkbox"]:checked),
-.checkbox-group label:has(input[type="checkbox"]:checked),
-[data-testid="checkbox-group"] label.selected{
-    border-color:var(--c-amber)!important;
-    background:var(--c-amber-pale)!important;
-    box-shadow:0 0 0 3px rgba(180,83,9,.10)!important;
-}
-[data-testid="checkbox-group"] label:has(input:checked) span,
-.checkbox-group label:has(input:checked) span,
-[data-testid="checkbox-group"] label.selected span{
-    color:var(--c-amber)!important; font-weight:700!important;
+[data-testid="checkbox-group"] label:has(input:checked) span {
+    font-weight: 700 !important;
 }
 
-/* ─── Dropdown ─── */
-[data-testid="dropdown"]{background:var(--c-bg)!important;border:1.5px solid var(--c-border)!important;
-    border-radius:var(--r-sm)!important;color:var(--c-text)!important;}
-.gr-dropdown ul{background:var(--c-surface)!important;border:1px solid var(--c-border)!important;
-    border-radius:var(--r-sm)!important;box-shadow:var(--sh-md)!important;overflow:hidden!important;}
-.gr-dropdown ul li{color:var(--c-text)!important;}
-.gr-dropdown ul li:hover{background:var(--c-teal-pale)!important;}
 
 /* ─── Buttons ─── */
-button.primary,.gr-button-primary,[data-testid="button"].primary{
-    font-family:'Plus Jakarta Sans',sans-serif!important;font-weight:700!important;
-    font-size:.95rem!important;color:#FFFFFF!important;background:var(--c-teal)!important;
-    border:none!important;border-radius:var(--r-sm)!important;padding:13px 28px!important;
-    cursor:pointer!important;box-shadow:0 4px 14px rgba(13,148,136,.28)!important;
-    transition:all .22s var(--ease)!important;}
-button.primary:hover{background:var(--c-teal-dark)!important;transform:translateY(-2px)!important;
-    box-shadow:0 10px 24px rgba(13,148,136,.38)!important;}
-button.primary:active{transform:translateY(0)!important;}
-button.secondary,.gr-button-secondary{font-family:'Plus Jakarta Sans',sans-serif!important;
-    font-weight:600!important;font-size:.9rem!important;color:var(--c-teal-dark)!important;
-    background:var(--c-surface)!important;border:1.5px solid var(--c-teal)!important;
-    border-radius:var(--r-sm)!important;padding:11px 22px!important;cursor:pointer!important;
-    transition:all .18s var(--ease)!important;}
-button.secondary:hover{background:var(--c-teal-pale)!important;}
-button.stop,.gr-button-stop{font-family:'Plus Jakarta Sans',sans-serif!important;
-    font-weight:600!important;color:var(--c-danger)!important;background:var(--c-danger-pale)!important;
-    border:1.5px solid #FECACA!important;border-radius:var(--r-sm)!important;padding:11px 22px!important;
-    cursor:pointer!important;transition:all .18s var(--ease)!important;}
-button.stop:hover{background:#FEE2E2!important;border-color:var(--c-danger)!important;}
+button.primary, .gr-button-primary {
+    font-weight: 700 !important;
+    font-size: .95rem !important;
+    color: #FFFFFF !important;
+    background: var(--c-teal) !important;
+    border: none !important;
+    border-radius: var(--r-sm) !important;
+    padding: 14px 30px !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 16px rgba(13,148,136,.28) !important;
+    transition: all .22s ease !important;
+}
+button.primary:hover {
+    background: var(--c-teal-dark) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 10px 24px rgba(13,148,136,.38) !important;
+}
+button.primary:active { transform: translateY(0) !important; }
+button.secondary, .gr-button-secondary {
+    font-weight: 600 !important;
+    color: var(--c-teal-dark) !important;
+    background: var(--c-surface) !important;
+    border: 1.5px solid var(--c-teal) !important;
+    border-radius: var(--r-sm) !important;
+    padding: 11px 22px !important;
+}
+button.secondary:hover { background: var(--c-teal-pale) !important; }
+button.stop, .gr-button-stop {
+    font-weight: 600 !important;
+    color: var(--c-danger) !important;
+    background: var(--c-danger-pale) !important;
+    border: 1.5px solid #FECACA !important;
+    border-radius: var(--r-sm) !important;
+    padding: 11px 22px !important;
+}
+button.stop:hover { background: #FEE2E2 !important; border-color: var(--c-danger) !important; }
 
-/* ─── File upload ─── */
-[data-testid="file-upload"],.file-preview,.upload-button,.file-drop{
-    background:var(--c-surface)!important;border:2px dashed var(--c-border-2)!important;
-    border-radius:var(--r)!important;color:var(--c-text-2)!important;
-    transition:all .2s var(--ease)!important;min-height:160px!important;}
-[data-testid="file-upload"]:hover{border-color:var(--c-teal)!important;
-    background:var(--c-teal-pale)!important;color:var(--c-teal-dark)!important;}
+/* ─── File Upload ─── */
+[data-testid="file-upload"], .file-preview, .upload-button, .file-drop {
+    background: var(--c-surface) !important;
+    border: 2px dashed var(--c-border-2) !important;
+    border-radius: var(--r) !important;
+    color: var(--c-text-2) !important;
+    min-height: 160px !important;
+    transition: all .2s ease !important;
+}
+[data-testid="file-upload"]:hover {
+    border-color: var(--c-teal) !important;
+    background: var(--c-teal-pale) !important;
+}
 
 /* ─── Gallery ─── */
-.grid-wrap,.gr-gallery{background:var(--c-bg-2)!important;border:1px solid var(--c-border)!important;
-    border-radius:var(--r)!important;padding:12px!important;}
-.thumbnail-item img,.gr-gallery img{border-radius:var(--r-sm)!important;
-    box-shadow:var(--sh-sm)!important;transition:transform .25s var(--ease),box-shadow .25s var(--ease)!important;}
-.thumbnail-item img:hover{transform:scale(1.04)!important;box-shadow:var(--sh-md)!important;}
+.grid-wrap, .gr-gallery {
+    background: var(--c-bg-2) !important;
+    border: 1px solid var(--c-border) !important;
+    border-radius: var(--r) !important;
+    padding: 12px !important;
+}
+.thumbnail-item img, .gr-gallery img {
+    border-radius: var(--r-sm) !important;
+    box-shadow: var(--sh-sm) !important;
+    transition: transform .25s ease, box-shadow .25s ease !important;
+}
+.thumbnail-item img:hover {
+    transform: scale(1.04) !important;
+    box-shadow: var(--sh-md) !important;
+}
 
-/* ─── FIX 2 + 3: Dataframe / Table — nền sáng + header không cắt ─── */
-/* Container */
+/* ─── Dataframe / Table ─── */
 .gr-dataframe, .gr-dataframe > div, .gr-dataframe .table-wrap,
-.svelte-virtual-table-viewport, .gradio-dataframe{
-    background:var(--c-surface)!important;
-    color:var(--c-text)!important;
-    border:1px solid var(--c-border)!important;
-    border-radius:var(--r)!important;
-    overflow:hidden!important;
+.gradio-dataframe {
+    background: var(--c-surface) !important;
+    color: var(--c-text) !important;
+    border: 1px solid var(--c-border) !important;
+    border-radius: var(--r) !important;
+    overflow: hidden !important;
 }
-/* Bỏ nền đen Gradio mặc định */
-.gr-dataframe table, .gradio-dataframe table, table.svelte-1tclfmr,
-.table, .dataframe{
-    background:var(--c-surface)!important;
-    color:var(--c-text)!important;
-    border-collapse:separate!important;
-    border-spacing:0!important;
-    width:100%!important;
-    table-layout:auto!important;
+.gr-dataframe table, .gradio-dataframe table {
+    background: var(--c-surface) !important;
+    color: var(--c-text) !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    width: 100% !important;
+    table-layout: auto !important;
 }
-/* HEADER — KHÔNG xuống dòng từng ký tự */
-.gr-dataframe th, .gradio-dataframe th, table th{
-    background:var(--c-bg-2)!important;
-    color:var(--c-text)!important;
-    -webkit-text-fill-color:var(--c-text)!important;
-    font-family:'Plus Jakarta Sans',sans-serif!important;
-    font-weight:700!important;
-    font-size:.75rem!important;
-    letter-spacing:.05em!important;
-    text-transform:uppercase!important;
-    border-bottom:2px solid var(--c-border)!important;
-    padding:12px 14px!important;
-    text-align:left!important;
-    white-space:nowrap!important;     /* ← KEY FIX: không tự ngắt */
-    word-break:keep-all!important;
-    overflow-wrap:normal!important;
-    min-width:80px!important;
-    vertical-align:middle!important;
+.gr-dataframe th, .gradio-dataframe th, table th {
+    background: var(--c-bg-2) !important;
+    color: var(--c-text) !important;
+    -webkit-text-fill-color: var(--c-text) !important;
+    font-weight: 700 !important;
+    font-size: .75rem !important;
+    letter-spacing: .05em !important;
+    text-transform: uppercase !important;
+    border-bottom: 2px solid var(--c-border) !important;
+    padding: 13px 14px !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    min-width: 80px !important;
 }
-/* CELLS — nền trắng, chữ tối */
-.gr-dataframe td, .gradio-dataframe td, table td{
-    background:var(--c-surface)!important;
-    color:var(--c-text-2)!important;
-    -webkit-text-fill-color:var(--c-text-2)!important;
-    font-size:.88rem!important;
-    border-bottom:1px solid var(--c-bg-2)!important;
-    padding:11px 14px!important;
-    white-space:nowrap!important;
-    vertical-align:middle!important;
+.gr-dataframe td, .gradio-dataframe td, table td {
+    background: var(--c-surface) !important;
+    color: var(--c-text-2) !important;
+    -webkit-text-fill-color: var(--c-text-2) !important;
+    font-size: .88rem !important;
+    border-bottom: 1px solid var(--c-bg-2) !important;
+    padding: 11px 14px !important;
+    white-space: nowrap !important;
 }
-.gr-dataframe td input, .gradio-dataframe td input{
-    background:transparent!important;
-    color:var(--c-text-2)!important;
-    border:none!important;
-    box-shadow:none!important;
-    padding:0!important;
+.gr-dataframe td input, .gradio-dataframe td input {
+    background: transparent !important;
+    color: var(--c-text-2) !important;
+    border: none !important;
+    box-shadow: none !important;
 }
-.gr-dataframe tr:hover td, .gradio-dataframe tr:hover td{
-    background:var(--c-teal-pale)!important;
-    color:var(--c-text)!important;
-    -webkit-text-fill-color:var(--c-text)!important;
+.gr-dataframe tr:hover td, .gradio-dataframe tr:hover td {
+    background: var(--c-teal-pale) !important;
+    color: var(--c-text) !important;
+    -webkit-text-fill-color: var(--c-text) !important;
 }
-.gr-dataframe tr:last-child td{border-bottom:none!important;}
-/* Override Svelte specific class hash names Gradio dùng */
-.gr-dataframe [class*="cell"], .gr-dataframe [class*="row"]{
-    background:var(--c-surface)!important; color:var(--c-text-2)!important;
-}
-.gr-dataframe [class*="header"]{
-    background:var(--c-bg-2)!important; color:var(--c-text)!important;
-}
-/* Scrollbar inside table */
-.gr-dataframe .table-wrap{overflow-x:auto!important;}
+.gr-dataframe .table-wrap { overflow-x: auto !important; }
 
-/* ─── Accordion ─── */
-.gr-accordion > .label-wrap, details > summary{
-    background:var(--c-bg)!important;color:var(--c-text)!important;
-    font-family:'Plus Jakarta Sans',sans-serif!important;font-weight:600!important;
-    font-size:.9rem!important;border-bottom:1px solid var(--c-border)!important;
-    padding:14px 18px!important;cursor:pointer!important;}
-.gr-accordion > .label-wrap:hover{background:var(--c-teal-pale)!important;}
-
-/* ─── Number metrics ─── */
-/* ─── Number metric boxes — chữ số ĐEN cố định ─── */
-/* FORCE Gradio Number value visible */
-.gr-number,
-.gr-number *,
-[data-testid="number"],
-[data-testid="number"] *{
-  opacity: 1 !important;
+/* ─── Number Metrics (Nuclear Visibility Fix) ─── */
+.gr-number, [data-testid="number"], .gr-number *, .gr-slider *, .gr-box * {
+    color: #1C2B3A !important;
+    -webkit-text-fill-color: #1C2B3A !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    filter: none !important;
 }
 
+.gr-number, [data-testid="number"], .gr-box {
+    background: #FFFFFF !important;
+    border: 1.5px solid var(--c-border) !important;
+    box-shadow: var(--sh-sm) !important;
+    overflow: visible !important;
+}
+
+/* Specific styling for the numerical value */
 .gr-number input,
 .gr-number input[type="number"],
 .gr-number input[disabled],
 .gr-number input[readonly],
 [data-testid="number"] input,
-[data-testid="number"] input[disabled],
-[data-testid="number"] input[readonly]{
-  color: #000 !important;
-  -webkit-text-fill-color: #000 !important;
-  opacity: 1 !important;
-  font-size: 2.2rem !important;
-  font-weight: 600 !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.gr-number input::placeholder,
-.gr-number input[disabled]::placeholder,
-[data-testid="number"] input::placeholder{
-  color: #000 !important;
-  -webkit-text-fill-color: #000 !important;
-  opacity: 1 !important;
+.gr-slider input,
+.gr-number .input-container input,
+.gr-number div.content,
+.gr-number p {
+    font-size: 2.6rem !important;
+    font-weight: 900 !important;
+    background: #FFFFFF !important;
+    color: #1C2B3A !important;
+    border: none !important;
+    box-shadow: none !important;
+    text-align: center !important;
+    min-height: 70px !important;
+    line-height: 70px !important;
 }
 
 
-/* ─── Textbox ─── */
-.gr-textbox input, .gr-textbox textarea{background:var(--c-bg)!important;
-    border:1.5px solid var(--c-border)!important;color:var(--c-text)!important;}
+/* Ensure placeholder or empty state is also dark */
+.gr-number input::placeholder {
+    color: #1C2B3A !important;
+}
+
+/* High contrast for the labels */
+.gr-number label span, 
+[data-testid="number"] label span,
+.gr-number .block label span {
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    font-size: 0.85rem !important;
+    margin-bottom: 4px !important;
+    display: block !important;
+}
+
+
+
+
+/* ─── Accordion ─── */
+.gr-accordion > .label-wrap, details > summary {
+    background: var(--c-bg) !important;
+    color: var(--c-text) !important;
+    font-weight: 600 !important;
+    font-size: .9rem !important;
+    border-bottom: 1px solid var(--c-border) !important;
+    padding: 14px 18px !important;
+    cursor: pointer !important;
+}
+.gr-accordion > .label-wrap:hover { background: var(--c-teal-pale) !important; }
 
 /* ─── Markdown ─── */
-.gr-markdown{color:var(--c-text-2)!important;}
-.gr-markdown p{color:var(--c-text-2)!important;line-height:1.7!important;margin:.4em 0!important;}
-.gr-markdown strong{color:var(--c-text)!important;font-weight:700!important;}
-.gr-markdown code{font-size:.82rem!important;background:var(--c-bg-2)!important;
-    border:1px solid var(--c-border)!important;border-radius:4px!important;
-    padding:2px 7px!important;color:var(--c-teal-dark)!important;}
-.gr-markdown h2,.gr-markdown h3{font-family:'DM Serif Display',serif!important;
-    font-weight:400!important;color:var(--c-text)!important;
-    -webkit-text-fill-color:var(--c-text)!important;margin:1em 0 .4em!important;}
+.gr-markdown { color: var(--c-text-2) !important; }
+.gr-markdown p { color: var(--c-text-2) !important; line-height: 1.7 !important; }
+.gr-markdown strong { color: var(--c-text) !important; font-weight: 700 !important; }
+.gr-markdown code {
+    font-size: .82rem !important;
+    background: var(--c-bg-2) !important;
+    border: 1px solid var(--c-border) !important;
+    border-radius: 4px !important;
+    padding: 2px 7px !important;
+    color: var(--c-teal-dark) !important;
+}
+.gr-markdown h2, .gr-markdown h3 {
+    font-family: 'DM Serif Display', serif !important;
+    font-weight: 400 !important;
+    color: var(--c-text) !important;
+}
 
 /* ─── Progress ─── */
-.progress-bar{background:linear-gradient(90deg,var(--c-teal),var(--c-teal-dark))!important;border-radius:4px!important;}
-.progress-track{background:var(--c-border)!important;border-radius:4px!important;}
+.progress-bar { background: linear-gradient(90deg, var(--c-teal), var(--c-teal-dark)) !important; border-radius: 4px !important; }
+.progress-track { background: var(--c-border) !important; border-radius: 4px !important; }
 
 /* ─── Scrollbar ─── */
-::-webkit-scrollbar{width:8px;height:8px;}
-::-webkit-scrollbar-track{background:var(--c-bg-2);border-radius:4px;}
-::-webkit-scrollbar-thumb{background:var(--c-border-2);border-radius:4px;}
-::-webkit-scrollbar-thumb:hover{background:var(--c-text-3);}
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: var(--c-bg-2); }
+::-webkit-scrollbar-thumb { background: var(--c-border-2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-text-3); }
 
-::selection{background:#B2EBE5;color:var(--c-teal-dark);}
+::selection { background: #B2EBE5; color: var(--c-teal-dark); }
 
-.footer-note{text-align:center;color:var(--c-text-3)!important;
-    font-size:.85rem!important;margin-top:24px!important;padding:16px!important;}
+.footer-note {
+    text-align: center;
+    color: var(--c-text-3) !important;
+    font-size: .85rem !important;
+    margin-top: 24px !important;
+    padding: 16px !important;
+}
 
-@media (max-width:768px){
-    .gradio-container{padding:0 16px 60px!important;}
-    .studio-hero{padding:32px 0 24px;}
-    div.tab-nav button{padding:9px 12px!important;font-size:.82rem!important;}
-    .status-row{flex-direction:column;}
-    .gr-dataframe th, .gr-dataframe td{font-size:.78rem!important;padding:8px 10px!important;}
+@media (max-width: 768px) {
+    .gradio-container { padding: 0 16px 60px !important; }
+    .studio-hero { padding: 32px 0 24px; }
+    div.tab-nav button { padding: 9px 12px !important; font-size: .82rem !important; }
+    .status-row { flex-direction: column; }
+    .gr-dataframe th, .gr-dataframe td { font-size: .78rem !important; padding: 8px 10px !important; }
 }
 """
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -597,7 +746,7 @@ with gr.Blocks(
     gr.HTML("""
 <div class="studio-hero">
     <h1>📸 VibeFlow <em>Photo Studio</em></h1>
-    <p class="subtitle">Hệ thống phân tích ảnh thông minh & dựng video tự động bằng AI</p>
+    <p class="subtitle">AI-powered photo analysis & automatic video generation</p>
     <div class="meta"><span class="dot"></span> Optimized for 4 GB VRAM · AI-powered selection</div>
 </div>
     """)
@@ -605,7 +754,7 @@ with gr.Blocks(
     # Status row
     with gr.Row(equal_height=True, elem_classes="status-row"):
         vram_status = gr.Markdown(format_vram_status(), elem_classes="vram-badge")
-        live_status = gr.Markdown("⬤ Sẵn sàng phân tích ảnh.", elem_classes="live-status")
+        live_status = gr.Markdown("⬤ Ready to analyze.", elem_classes="live-status")
 
     # States
     uploaded_paths_state   = gr.State([])
@@ -614,10 +763,10 @@ with gr.Blocks(
 
     with gr.Tabs() as tabs:
 
-        # ── TAB 1: UPLOAD & CONFIG ───────────────────────────────────────
-        with gr.Tab("① Tải ảnh & Cấu hình", id="upload"):
+        # ─── TAB 1: UPLOAD & CONFIG ───────────────────────────────────────
+        with gr.Tab("① Upload & Config", id="upload"):
             file_upload = gr.Files(
-                label="Kéo & thả ảnh vào đây — JPG · PNG · WEBP",
+                label="Drag & drop images here — JPG · PNG · WEBP",
                 file_types=[".jpg", ".jpeg", ".png", ".webp"],
                 file_count="multiple",
                 height=180,
@@ -626,141 +775,140 @@ with gr.Blocks(
             with gr.Row(equal_height=True):
                 with gr.Column(scale=1):
                     theme_radio = gr.Radio(
-                        label="Chủ đề / Theme",
-                        choices=["Gia đình / Family", "Cá nhân / Individual", "Nhóm / Group"],
-                        value="Gia đình / Family",
+                        label="Theme",
+                        choices=["Family", "Individual", "Group"],
+                        value="Family",
                         interactive=True,
                     )
                 with gr.Column(scale=1):
                     priority_check = gr.CheckboxGroup(
-                        label="Ưu tiên lọc / Filter priority",
-                        choices=["Nụ cười / Smile", "Chất lượng / Quality",
-                                 "Ánh sáng / Lighting", "Thẩm mỹ / Aesthetic"],
-                        value=["Nụ cười / Smile", "Chất lượng / Quality"],
+                        label="Filter Priority",
+                        choices=["Smile", "Quality", "Lighting", "Aesthetic"],
+                        value=["Smile", "Quality"],
                         interactive=True,
                     )
                 with gr.Column(scale=1):
                     sensitivity_slider = gr.Slider(
                         minimum=5, maximum=10, value=7, step=1,
-                        label="Độ nhạy AI (cao = lọc chặt hơn)",
+                        label="AI Sensitivity (higher = stricter)",
                         interactive=True,
                     )
                     photo_count_display = gr.Number(
-                        label="Số ảnh đã tải lên", interactive=False, value=0,
+                        label="Photos Uploaded", interactive=False, value=0,
                     )
 
-            with gr.Accordion("📖 Hướng dẫn & giải thích chỉ số", open=False):
+            with gr.Accordion("📖 Guide & Score Explanation", open=False):
                 gr.Markdown("""
-**Sensitivity** — Điểm sàn = Sensitivity × 10. Mặc định 7 → ảnh dưới 70/100 bị đánh dấu loại.
+**Sensitivity** — Minimum score = Sensitivity × 10. Default 7 → photos below 70/100 are flagged.
 
-| Chỉ số | Mô tả |
+| Metric | Description |
 |---|---|
-| **Nụ cười** | Độ rộng khuôn miệng & khóe môi (0–100) |
-| **Mắt mở** | Tỷ lệ EAR — cảnh báo nếu nhắm mắt |
-| **Thẩm mỹ** | CLIP model đánh giá độ nghệ thuật (Xương sống 50%) |
-| **Độ nét** | Laplacian đo tương phản cạnh (25%) |
-| **Ánh sáng** | Phân bố histogram (25%) |
-| **Mắt mở** | Cổng gác Stage 1 — Loại bỏ nếu < 30 |
+| **Smile** | Mouth width & corner lift ratio (0–100) |
+| **Eyes Open** | EAR ratio — warns if eyes are closed |
+| **Aesthetic** | CLIP model art quality score (backbone 50%) |
+| **Sharpness** | Laplacian edge contrast measure (25%) |
+| **Lighting** | Histogram distribution analysis (25%) |
+| **Eyes Open** | Stage 1 gate — rejected if < 30 |
 
-`Score = 50% Thẩm mỹ + 25% Độ nét + 25% Ánh sáng` (Bonus +1.5 nếu cười tươi)
+`Score = 50% Aesthetic + 25% Sharpness + 25% Lighting` (Bonus +1.5 if smiling)
                 """)
 
-            upload_preview = gr.Gallery(label="Xem trước ảnh", columns=6, height=280, object_fit="cover")
-            analyze_btn = gr.Button("🤖  Bắt đầu phân tích AI →", variant="primary", size="lg")
+            upload_preview = gr.Gallery(label="Photo Preview", columns=6, height=280, object_fit="cover")
+            analyze_btn = gr.Button("🤖  Start AI Analysis →", variant="primary", size="lg")
 
-        # ── TAB 2: ANALYSIS RESULTS ──────────────────────────────────────
-        with gr.Tab("② Kết quả phân tích", id="analysis"):
+        # ─── TAB 2: ANALYSIS RESULTS ──────────────────────────────────────
+        with gr.Tab("② Analysis Results", id="analysis"):
             status_text = gr.Textbox(
-                label="Trạng thái", interactive=False, lines=1,
-                placeholder="Kết quả sẽ hiển thị sau khi phân tích...",
+                label="Status", interactive=False, lines=1,
+                placeholder="Results will appear after analysis...",
             )
 
             with gr.Row():
-                num_selected = gr.Number(label="✅  Được chọn", interactive=False)
-                num_rejected = gr.Number(label="❌  Bị loại",    interactive=False)
-                avg_score    = gr.Number(label="📈  Điểm TB",    interactive=False)
-                avg_smile    = gr.Number(label="😊  Nụ cười TB", interactive=False)
+                num_selected = gr.Number(label="✅  Selected", interactive=False)
+                num_rejected = gr.Number(label="❌  Rejected",    interactive=False)
+                avg_score    = gr.Number(label="📈  Avg Score",    interactive=False)
+                avg_smile    = gr.Number(label="😊  Avg Smile", interactive=False)
 
             with gr.Row():
-                min_score_filter = gr.Slider(0, 100, value=60, step=5, label="Điểm tối thiểu", interactive=True)
+                min_score_filter = gr.Slider(0, 100, value=60, step=5, label="Minimum Score", interactive=True)
                 sort_dropdown = gr.Dropdown(
-                    label="Sắp xếp theo",
-                    choices=["Điểm cao nhất", "Nụ cười tốt nhất", "Thứ tự gốc"],
-                    value="Điểm cao nhất", interactive=True,
+                    label="Sort By",
+                    choices=["Highest Score", "Best Smile", "Original Order"],
+                    value="Highest Score", interactive=True,
                 )
                 show_radio = gr.Radio(
-                    label="Hiển thị",
-                    choices=["Tất cả", "Được chọn", "Bị loại"],
-                    value="Tất cả", interactive=True,
+                    label="Show",
+                    choices=["All", "Selected", "Rejected"],
+                    value="All", interactive=True,
                 )
 
             results_gallery = gr.Gallery(
-                label="Kết quả phân tích", columns=5, height=380,
+                label="Analysis Results", columns=5, height=380,
                 object_fit="cover", allow_preview=True,
             )
 
             results_table = gr.Dataframe(
-                headers=["Ảnh", "Điểm tổng", "Nụ cười", "Mắt mở", "Độ nét",
-                         "Ánh sáng", "Thẩm mỹ", "Trạng thái", "Ghi chú AI"],
+                headers=["Photo", "Score", "Smile", "Eyes", "Sharpness",
+                         "Lighting", "Aesthetic", "Status", "AI Note"],
                 datatype=["str", "number", "number", "number", "number",
                           "number", "number", "str", "str"],
                 interactive=False, wrap=True,
             )
 
             selection_checkbox = gr.CheckboxGroup(
-                label="Chọn ảnh cho video (AI đã tự chọn sẵn)", choices=[],
+                label="Select photos for video (AI pre-selected)", choices=[],
             )
 
-            proceed_btn = gr.Button("🎬  Thiết lập video →", variant="primary")
+            proceed_btn = gr.Button("🎬  Set Up Video →", variant="primary")
 
-        # ── TAB 3: VIDEO BUILDER ─────────────────────────────────────────
-        with gr.Tab("③ Dựng video & Xuất", id="video"):
+        # ─── TAB 3: VIDEO BUILDER ─────────────────────────────────────────
+        with gr.Tab("③ Build & Export Video", id="video"):
             with gr.Row(equal_height=True):
                 with gr.Column(scale=1):
                     slide_duration = gr.Slider(
                         2.0, 8.0, value=3.0, step=0.5,
-                        label="⏱  Thời gian mỗi ảnh (giây)",
+                        label="⏱  Duration per photo (seconds)",
                     )
                     transition_radio = gr.Radio(
-                        label="✨  Hiệu ứng chuyển",
-                        choices=["Fade (Mờ dần)", "Zoom (Ken Burns)", "Không có / None"],
-                        value="Fade (Mờ dần)",
+                        label="✨  Transition Effect",
+                        choices=["Fade", "Zoom (Ken Burns)", "None"],
+                        value="Fade",
                     )
                 with gr.Column(scale=1):
                     mood_radio = gr.Radio(
-                        label="🎨  Phong cách",
+                        label="🎨  Style",
                         choices=[
-                            "Classic (Ấm áp, hoài niệm)",
-                            "Pop (Tươi sáng, rực rỡ)",
-                            "Cinematic (Điện ảnh, tối)",
+                            "Classic (Warm, nostalgic)",
+                            "Pop (Bright, vibrant)",
+                            "Cinematic (Dark, moody)",
                         ],
-                        value="Classic (Ấm áp, hoài niệm)",
+                        value="Classic (Warm, nostalgic)",
                     )
                 with gr.Column(scale=1):
                     bgm_radio = gr.Radio(
-                        label="🎵  Nhạc nền",
+                        label="🎵  Background Music",
                         choices=[config.BGM_TRACKS[k]["name"] for k in config.BGM_TRACKS],
-                        value="Không có nhạc",
+                        value="No Music",
                     )
-                    bgm_volume = gr.Slider(0, 1, value=0.8, step=0.1, label="🔊  Âm lượng")
+                    bgm_volume = gr.Slider(0, 1, value=0.8, step=0.1, label="🔊  Volume")
 
-            video_info = gr.Markdown("Vui lòng chọn ảnh ở Tab ② trước khi tạo video.")
-            generate_btn = gr.Button("🎬  Tạo Video", variant="primary", size="lg")
-            gen_progress_text = gr.Textbox(label="Tiến trình", interactive=False)
-            video_output = gr.Video(label="🎥  Video của bạn", height=420)
+            video_info = gr.Markdown("Please select photos in Tab ② before generating video.")
+            generate_btn = gr.Button("🎬  Generate Video", variant="primary", size="lg")
+            gen_progress_text = gr.Textbox(label="Progress", interactive=False)
+            video_output = gr.Video(label="🎥  Your Video", height=420)
 
             with gr.Row():
-                download_btn = gr.DownloadButton(label="⬇  Tải xuống MP4", variant="secondary")
-                restart_btn = gr.Button("↩  Làm lại từ đầu", variant="stop")
+                download_btn = gr.DownloadButton(label="⬇  Download MP4", variant="secondary")
+                restart_btn = gr.Button("↩  Start Over", variant="stop")
 
-            gr.HTML('<p class="footer-note">📂 Video sẽ được lưu tự động tại thư mục <code>output/</code>.</p>')
+            gr.HTML('<p class="footer-note">📂 Videos are auto-saved to the <code>output/</code> folder.</p>')
 
-    # ─────────────────────── Tab navigation JS ───────────────────────
+    # ─────────────────────────── Tab navigation JS ───────────────────────
     JS_GOTO_TAB_1 = """() => { setTimeout(() => { const t = document.querySelectorAll('button[role="tab"]'); if(t[0]) t[0].click(); }, 100); }"""
     JS_GOTO_TAB_2 = """() => { setTimeout(() => { const t = document.querySelectorAll('button[role="tab"]'); if(t[1]) t[1].click(); }, 100); }"""
     JS_GOTO_TAB_3 = """() => { setTimeout(() => { const t = document.querySelectorAll('button[role="tab"]'); if(t[2]) t[2].click(); }, 100); }"""
 
-    # ─────────────────────── Event wiring ───────────────────────
+    # ─────────────────────────── Event wiring ───────────────────────
     file_upload.change(
         fn=on_upload,
         inputs=[file_upload],
@@ -785,7 +933,7 @@ with gr.Blocks(
     )
 
     slide_duration.change(
-        fn=lambda paths, dur: f"**Cấu hình video:** {len(paths)} ảnh · Ước tính ~{len(paths)*dur:.1f} giây",
+        fn=lambda paths, dur: f"**Video config:** {len(paths)} photos · Estimated ~{len(paths)*dur:.1f} seconds",
         inputs=[selected_paths_state, slide_duration],
         outputs=[video_info],
     )

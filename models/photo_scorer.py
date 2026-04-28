@@ -60,17 +60,17 @@ class SelectionFilter:
         Evaluate hard filters.
         Returns: (accepted: bool, reason: str)
         """
-        # 1. Extreme Blur Filter
+        # 1. Extreme Blur Filter (Luôn kiểm tra)
         if photo.sharpness_score < config.MIN_SHARPNESS:
             return False, f"Ảnh quá mờ (Sharpness {photo.sharpness_score:.1f} < {config.MIN_SHARPNESS})"
 
-        # 2. Closed Eyes Filter (Hard threshold)
-        if photo.eye_open_score < config.MIN_EYE_OPEN:
-            return False, f"Mắt nhắm hẳn (Eye score {photo.eye_open_score:.1f} < {config.MIN_EYE_OPEN})"
-
-        # 3. Face Presence & Rescue Logic
-        if photo.face_count == 0:
-            # Rescue: If aesthetic is very high, accept as artistic/landscape
+        # 2. Logic theo khuôn mặt
+        if photo.face_count > 0:
+            # Nếu có mặt -> Kiểm tra mắt nhắm
+            if photo.eye_open_score < config.MIN_EYE_OPEN:
+                return False, f"Mắt nhắm hẳn (Eye score {photo.eye_open_score:.1f} < {config.MIN_EYE_OPEN})"
+        else:
+            # Nếu không có mặt -> Rescue logic
             if photo.aesthetic_score >= config.RESCUE_AESTHETIC_THRESHOLD:
                 return True, "no_face_but_high_aesthetic"
             else:
